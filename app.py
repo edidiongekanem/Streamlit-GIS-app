@@ -140,25 +140,26 @@ elif tool == "Parcel Plotter":
     if st.button("Plot Parcel"):
 
         try:
-            # Close polygon automatically
+            # Auto-close polygon
             if utm_coords[0] != utm_coords[-1]:
                 utm_coords.append(utm_coords[0])
 
-            # Create polygon in UTM for accurate area
+            # Build polygon in UTM for accurate area
             polygon = Polygon(utm_coords)
 
             if not polygon.is_valid:
                 st.error("❌ Invalid boundary shape. Check point sequence.")
             else:
-                # AREA IN SQUARE METERS
+
+                # AREA IN SQUARE METERS (correct, because UTM)
                 area = polygon.area
                 st.success("✅ Parcel plotted successfully!")
                 st.write(f"### Area: **{area:,.2f} m²**")
 
-                # Convert coordinates for map display
+                # Convert UTM → Lat/Lon for mapping
                 ll_coords = [transformer.transform(x, y) for x, y in utm_coords]
 
-                # Prepare pydeck polygon data
+                # Polygon for pydeck
                 polygon_data = [{
                     "coordinates": [ll_coords]
                 }]
@@ -182,12 +183,13 @@ elif tool == "Parcel Plotter":
                     radius_max_pixels=30,
                 )
 
-                # Zoom to centroid
+                # Center on the polygon centroid
                 centroid_lon, centroid_lat = transformer.transform(
                     polygon.centroid.x,
                     polygon.centroid.y
                 )
 
+                # 🟦 SAME BASEMAP AS LGA FINDER (map_style=None)
                 st.pydeck_chart(
                     pdk.Deck(
                         layers=[polygon_layer, point_layer],
@@ -196,7 +198,7 @@ elif tool == "Parcel Plotter":
                             latitude=centroid_lat,
                             zoom=17
                         ),
-                        map_style=None
+                        map_style=None  # <-- SAME BASEMAP
                     )
                 )
 
