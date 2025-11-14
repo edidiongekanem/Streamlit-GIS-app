@@ -3,6 +3,7 @@ import geopandas as gpd
 from shapely.geometry import Point
 from pyproj import Transformer
 import pydeck as pdk
+import json
 
 st.set_page_config(page_title="Offline Nigeria LGA Finder", layout="centered")
 
@@ -28,7 +29,7 @@ N = st.number_input("Northing (m)", format="%.2f")
 # ------------------------
 # CRS Transformation
 # ------------------------
-projected_crs = "EPSG:32632"  # Example CRS
+projected_crs = "EPSG:32632"  # Replace with your projected CRS
 transformer = Transformer.from_crs(projected_crs, "EPSG:4326", always_xy=True)
 
 if st.button("Find LGA"):
@@ -49,18 +50,24 @@ if st.button("Find LGA"):
 
         st.success(f"✅ The coordinate is in **{lga_name} LGA**.")
 
-        # -------------------------------------------------
-        # 🔥 FIXED POLYGON MAP SECTION (NEW)
-        # -------------------------------------------------
-        # Extract polygon geometry
-        poly_json = match.__geo_interface__["features"][0]["geometry"]
+        # ------------------------
+        # Prepare polygon data for Pydeck
+        # ------------------------
+        geojson_dict = json.loads(match.to_json())
 
-        # Pydeck needs coordinates wrapped inside dict
-        polygon_data = [{
-            "coordinates": poly_json["coordinates"]
-        }]
+        polygon_data = []
+        for feature in geojson_dict["features"]:
+            geom_type = feature["geometry"]["type"]
+            coords = feature["geometry"]["coordinates"]
+            if geom_type == "Polygon":
+                polygon_data.append({"coordinates": coords})
+            elif geom_type == "MultiPolygon":
+                for poly in coords:
+                    polygon_data.append({"coordinates": poly})
 
-        # Polygon layer
+        # ------------------------
+        # Create Pydeck layers
+        # ------------------------
         polygon_layer = pdk.Layer(
             "PolygonLayer",
             polygon_data,
@@ -72,7 +79,6 @@ if st.button("Find LGA"):
             stroked=True,
         )
 
-        # Point layer
         point_layer = pdk.Layer(
             "ScatterplotLayer",
             [{"lon": lon, "lat": lat}],
@@ -94,10 +100,9 @@ if st.button("Find LGA"):
             pdk.Deck(
                 layers=[polygon_layer, point_layer],
                 initial_view_state=view_state,
-                map_style=None  # Offline mode
+                map_style=None  # Offline-ready
             )
         )
-        # -------------------------------------------------
 
     else:
         st.error("❌ No LGA found for this coordinate.")
