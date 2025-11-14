@@ -27,8 +27,7 @@ N = st.number_input("Northing (m)", format="%.2f")
 # ------------------------
 # CRS Transformation
 # ------------------------
-# Replace 32632 with your projected CRS if different
-projected_crs = "EPSG:32632"  # example: UTM Zone 32N
+projected_crs = "EPSG:32632"  # Your CRS (example: UTM Zone 32N)
 transformer = Transformer.from_crs(projected_crs, "EPSG:4326", always_xy=True)
 
 if st.button("Find LGA"):
@@ -46,6 +45,15 @@ if st.button("Find LGA"):
             lga_name = match.iloc[0][name_cols[0]]
         else:
             lga_name = "Unknown"
+        
         st.success(f"✅ The coordinate is in **{lga_name} LGA**.")
+        
+        # ------------------------
+        # NEW FEATURE ADDED HERE
+        # Show the matched LGA on a map
+        # ------------------------
+        st.subheader("📍 LGA Location on Map")
+        st.map(match)
+        
     else:
         st.error("❌ No LGA found for this coordinate.")
