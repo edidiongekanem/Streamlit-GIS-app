@@ -120,37 +120,47 @@ elif tool == "Nigeria LGA Finder":
 # =========================================================
 elif tool == "Parcel Plotter":
 
-    st.header("📐 Parcel Boundary Plotter")
-    st.write("Enter coordinates to plot a parcel and compute area.")
+    st.header("📐 Parcel Boundary Plotter (UTM Coordinates)")
+    st.write("Enter UTM Easting/Northing (Zone 32N, meters).")
+
+    # CRS definitions
+    projected_crs = "EPSG:32632"    # UTM Zone 32N
+    transformer = Transformer.from_crs(projected_crs, "EPSG:4326", always_xy=True)
 
     num_points = st.number_input("Number of beacons:", min_value=3, step=1)
 
-    coords = []
+    utm_coords = []
     if num_points > 0:
         for i in range(num_points):
             col1, col2 = st.columns(2)
-            x = col1.number_input(f"Point {i+1} → X / Longitude", key=f"x{i}", format="%.6f")
-            y = col2.number_input(f"Point {i+1} → Y / Latitude", key=f"y{i}", format="%.6f")
-            coords.append((x, y))
+            e = col1.number_input(f"Point {i+1} → Easting (m)", key=f"e{i}", format="%.2f")
+            n = col2.number_input(f"Point {i+1} → Northing (m)", key=f"n{i}", format="%.2f")
+            utm_coords.append((e, n))
 
     if st.button("Plot Parcel"):
 
-        if coords[0] != coords[-1]:
-            coords.append(coords[0])
-
         try:
-            polygon = Polygon(coords)
+            # Close polygon automatically
+            if utm_coords[0] != utm_coords[-1]:
+                utm_coords.append(utm_coords[0])
+
+            # Create polygon in UTM for accurate area
+            polygon = Polygon(utm_coords)
 
             if not polygon.is_valid:
                 st.error("❌ Invalid boundary shape. Check point sequence.")
             else:
+                # AREA IN SQUARE METERS
                 area = polygon.area
-                st.success(f"✅ Parcel plotted successfully!")
-                st.write(f"### Area: **{area:.2f} square units**")
+                st.success("✅ Parcel plotted successfully!")
+                st.write(f"### Area: **{area:,.2f} m²**")
 
-                # Prepare map polygon
+                # Convert coordinates for map display
+                ll_coords = [transformer.transform(x, y) for x, y in utm_coords]
+
+                # Prepare pydeck polygon data
                 polygon_data = [{
-                    "coordinates": [list(polygon.exterior.coords)]
+                    "coordinates": [ll_coords]
                 }]
 
                 polygon_layer = pdk.Layer(
@@ -159,13 +169,12 @@ elif tool == "Parcel Plotter":
                     get_polygon="coordinates",
                     get_fill_color="[0, 150, 255, 80]",
                     get_line_color="[0, 50, 200]",
-                    stroked=True
+                    stroked=True,
                 )
 
-                # INTERACTIVE ZOOM-SCALING POINT MARKERS
                 point_layer = pdk.Layer(
                     "ScatterplotLayer",
-                    [{"lon": c[0], "lat": c[1]} for c in coords],
+                    [{"lon": lon, "lat": lat} for lon, lat in ll_coords],
                     get_position="[lon, lat]",
                     get_color="[255, 0, 0]",
                     radius_scale=1,
@@ -173,15 +182,19 @@ elif tool == "Parcel Plotter":
                     radius_max_pixels=30,
                 )
 
-                centroid = polygon.centroid
+                # Zoom to centroid
+                centroid_lon, centroid_lat = transformer.transform(
+                    polygon.centroid.x,
+                    polygon.centroid.y
+                )
 
                 st.pydeck_chart(
                     pdk.Deck(
                         layers=[polygon_layer, point_layer],
                         initial_view_state=pdk.ViewState(
-                            longitude=centroid.x,
-                            latitude=centroid.y,
-                            zoom=15
+                            longitude=centroid_lon,
+                            latitude=centroid_lat,
+                            zoom=17
                         ),
                         map_style=None
                     )
