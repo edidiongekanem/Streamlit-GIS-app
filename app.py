@@ -81,8 +81,8 @@ elif tool == "Parcel Plotter":
 
                 coords = st.session_state.utm_coords
 
-                # Compute distances, bearings, angles
-                table_data = [["Point ID", "Easting", "Northing", "Distance (m)", "Bearing (°)", "Angle (°)"]]
+                # Compute distances and bearings only (no acos, no angles)
+                table_data = [["Point ID", "Easting", "Northing", "Distance (m)", "Bearing (°)"]]
                 n = len(coords)-1
 
                 def compute_distance(p1, p2):
@@ -97,21 +97,9 @@ elif tool == "Parcel Plotter":
                     p2 = coords[i+1]
                     dist = compute_distance(p1, p2)
                     bearing = compute_bearing(p1, p2)
-                    # Angle at p2 formed by lines (i-1 to i) and (i to i+1)
-                    if i == 0:
-                        prev = coords[-2]
-                    else:
-                        prev = coords[i-1]
-                    v1x, v1y = p1[0]-prev[0], p1[1]-prev[1]
-                    v2x, v2y = p2[0]-p1[0], p2[1]-p1[1]
-                    dot = v1x*v2x + v1y*v2y
-                    mag1 = sqrt(v1x**2 + v1y**2)
-                    mag2 = sqrt(v2x**2 + v2y**2)
-                    angle = degrees(acos(dot/(mag1*mag2))) if mag1*mag2 != 0 else 0
+                    table_data.append([str(i+1), f"{p1[0]:.2f}", f"{p1[1]:.2f}", f"{dist:.2f}", f"{bearing:.2f}"])
 
-                    table_data.append([str(i+1), f"{p1[0]:.2f}", f"{p1[1]:.2f}", f"{dist:.2f}", f"{bearing:.2f}", f"{angle:.2f}"])
-
-                coord_table = Table(table_data, colWidths=[50, 100, 100, 80, 80, 60])
+                coord_table = Table(table_data, colWidths=[50, 120, 120, 80, 80])
                 coord_table.setStyle(TableStyle([
                     ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
                     ('GRID', (0,0), (-1,-1), 1, colors.black),
