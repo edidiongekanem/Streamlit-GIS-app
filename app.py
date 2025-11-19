@@ -213,7 +213,7 @@ elif tool == "Parcel Plotter":
                         with open(pdf_file, "rb") as f:
                             st.download_button("⬇️ Download Sketch Plan", f, pdf_file, mime="application/pdf")
                     except Exception as e:
-                        st.error(f"PDF error: {e}")
+                    st.error(f"Error: {e}")(f"PDF error: {e}")
 
                 # ================================
                 # 2️⃣ COMPUTATION SHEET PDF
@@ -276,3 +276,4 @@ elif tool == "Parcel Plotter":
 
         except Exception as e:
             st.error(f"Error: {e}")
+after 
