@@ -112,6 +112,8 @@ elif tool == "Parcel Plotter":
 
     if "parcel_plotted" not in st.session_state:
         st.session_state.parcel_plotted = False
+    if "parcel_area" not in st.session_state:
+        st.session_state.parcel_area = 0
 
     st.header("📐 Parcel Boundary Plotter (UTM Coordinates)")
     st.write("Enter UTM Easting/Northing (Zone 32N, meters).")
@@ -140,9 +142,9 @@ elif tool == "Parcel Plotter":
         if not polygon.is_valid:
             st.error("❌ Invalid boundary shape. Check point sequence.")
         else:
-            area = polygon.area
+            st.session_state.parcel_area = polygon.area
             st.success("✅ Parcel plotted successfully!")
-            st.write(f"### Area: **{area:,.2f} m²**")
+            st.write(f"### Area: **{st.session_state.parcel_area:,.2f} m²**")
 
             ll_coords = [transformer.transform(x, y) for x, y in utm_coords]
             polygon_data = [{"coordinates": [ll_coords]}]
@@ -160,8 +162,8 @@ elif tool == "Parcel Plotter":
                 "ScatterplotLayer",
                 [{"lon": lon, "lat": lat} for lon, lat in ll_coords],
                 get_position="[lon, lat]",
-                get_color="[0, 0, 0]",  # square beacon color
-                radius_scale=200,          # approximate square symbol
+                get_color="[0, 0, 0]",
+                radius_scale=200,
                 radius_min_pixels=5,
                 radius_max_pixels=10,
             )
@@ -198,7 +200,7 @@ elif tool == "Parcel Plotter":
 
                     story.append(Paragraph("<b>Parcel Sketch Plan</b>", styles['Title']))
                     story.append(Spacer(1, 12))
-                    story.append(Paragraph(f"<b>Area:</b> {area:,.2f} m²", styles['Normal']))
+                    story.append(Paragraph(f"<b>Area:</b> {st.session_state.parcel_area:,.2f} m²", styles['Normal']))
                     story.append(Spacer(1, 12))
 
                     table_data = [["Point", "Easting", "Northing"]]
@@ -215,8 +217,7 @@ elif tool == "Parcel Plotter":
                     story.append(coord_table)
                     story.append(Spacer(1, 20))
 
-                    # Add snapshot of pydeck map
-                    img_data = r.to_image()  # capture as PNG
+                    img_data = r.to_image()
                     img_buffer = io.BytesIO()
                     img_data.save(img_buffer, format='PNG')
                     img_buffer.seek(0)
@@ -241,7 +242,7 @@ elif tool == "Parcel Plotter":
 
                     story.append(Paragraph("<b>Parcel Computation Sheet</b>", styles['Title']))
                     story.append(Spacer(1, 12))
-                    story.append(Paragraph(f"<b>Total Area:</b> {area:,.2f} m²", styles['Heading2']))
+                    story.append(Paragraph(f"<b>Total Area:</b> {st.session_state.parcel_area:,.2f} m²", styles['Heading2']))
                     story.append(Spacer(1, 15))
 
                     comp_data = [["Line", "Start", "End", "Distance (m)", "Bearing (°)", "Angle (°)"]]
@@ -254,7 +255,6 @@ elif tool == "Parcel Plotter":
                         dy = y2 - y1
                         distance = sqrt(dx*dx + dy*dy)
                         bearing = (degrees(atan2(dx, dy)) + 360) % 360
-                        # interior angle placeholder
                         angle = "-"
                         comp_data.append([f"L{i+1}", f"P{i+1}", f"P{i+2}", f"{distance:.2f}", f"{bearing:.2f}", angle])
 
