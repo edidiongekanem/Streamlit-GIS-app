@@ -66,8 +66,10 @@ elif tool == "Parcel Plotter":
             st.success(f"✅ Parcel plotted successfully! Area: {st.session_state.parcel_area:,.2f} m²")
 
     if st.session_state.parcel_plotted:
-        # --- Draw Sketch Plan PDF ---
-        if st.button("📄 Print Sketch Plan"):
+
+        # Draw Sketch Plan PDF button
+        sketch_button = st.button("📄 Print Sketch Plan")
+        if sketch_button:
             try:
                 buffer = io.BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=A4)
@@ -78,7 +80,6 @@ elif tool == "Parcel Plotter":
                 story.append(Spacer(1, 12))
 
                 coords = st.session_state.utm_coords
-
                 drawing = Drawing(400, 400)
                 xs, ys = zip(*coords)
                 min_x, max_x = min(xs), max(xs)
@@ -86,7 +87,6 @@ elif tool == "Parcel Plotter":
                 scale_x = 350 / (max_x - min_x) if max_x != min_x else 1
                 scale_y = 350 / (max_y - min_y) if max_y != min_y else 1
                 scale = min(scale_x, scale_y)
-
                 norm_coords = [((x - min_x) * scale + 25, (y - min_y) * scale + 25) for x, y in coords]
 
                 for i in range(len(norm_coords)-1):
@@ -106,8 +106,12 @@ elif tool == "Parcel Plotter":
                 buffer.seek(0)
                 st.download_button("⬇️ Download Sketch Plan", buffer, file_name="parcel_sketch_plan.pdf", mime="application/pdf")
 
-        # --- Computation Sheet PDF ---
-        if st.button("📄 Print Computation Sheet"):
+            except Exception as e:
+                st.error(f"Sketch Plan PDF error: {e}")
+
+        # Computation Sheet PDF button
+        computation_button = st.button("📄 Print Computation Sheet")
+        if computation_button:
             try:
                 buffer = io.BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=A4)
@@ -120,7 +124,6 @@ elif tool == "Parcel Plotter":
                 story.append(Spacer(1, 12))
 
                 coords = st.session_state.utm_coords
-
                 table_data = [["Point ID", "Easting", "Northing", "Distance (m)", "Bearing (°)", "Angle (°)"]]
 
                 def compute_distance(p1, p2):
@@ -140,7 +143,6 @@ elif tool == "Parcel Plotter":
                     bearings.append(bearing)
                     table_data.append([str(i+1), f"{p1[0]:.2f}", f"{p1[1]:.2f}", f"{dist:.2f}", f"{bearing:.2f}", ""]) 
 
-                # Compute internal angles
                 for i in range(1, n):
                     b1 = bearings[i-1]
                     b2 = bearings[i]
@@ -162,4 +164,4 @@ elif tool == "Parcel Plotter":
                 st.download_button("⬇️ Download Computation Sheet", buffer, file_name="parcel_computation_sheet.pdf", mime="application/pdf")
 
             except Exception as e:
-                st.error(f"PDF error: {e}")
+                st.error(f"Computation Sheet PDF error: {e}")
