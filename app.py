@@ -103,77 +103,57 @@ elif tool == "Parcel Plotter":
                 )
             )
 
-            # --- PDF buttons ---
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("📄 Print Sketch Plan"):
-                    try:
-                        buffer = io.BytesIO()
-                        doc = SimpleDocTemplate(buffer, pagesize=A4)
-                        styles = getSampleStyleSheet()
-                        story = []
+    # --- PDF buttons outside of st.button("Plot Parcel") ---
+    if st.session_state.parcel_plotted:
+        col1, col2 = st.columns(2)
+        with col1:
+            sketch_buffer = io.BytesIO()
+            if st.download_button("📄 Print Sketch Plan", sketch_buffer, file_name="parcel_sketch_plan.pdf", mime="application/pdf"):
+                doc = SimpleDocTemplate(sketch_buffer, pagesize=A4)
+                styles = getSampleStyleSheet()
+                story = [Paragraph("<b>Parcel Sketch Plan</b>", styles['Title']), Spacer(1, 12), Paragraph("(Sketch will be drawn in PDF)", styles['Normal'])]
+                doc.build(story)
 
-                        story.append(Paragraph("<b>Parcel Sketch Plan</b>", styles['Title']))
-                        story.append(Spacer(1, 12))
-                        story.append(Paragraph("(Sketch will be drawn in PDF)", styles['Normal']))
+        with col2:
+            comp_buffer = io.BytesIO()
+            if st.download_button("📄 Print Computation Sheet", comp_buffer, file_name="parcel_computation_sheet.pdf", mime="application/pdf"):
+                doc = SimpleDocTemplate(comp_buffer, pagesize=A4)
+                styles = getSampleStyleSheet()
+                story = [Paragraph("<b>Parcel Computation Sheet</b>", styles['Title']), Spacer(1, 12), Paragraph(f"<b>Total Area:</b> {st.session_state.parcel_area:,.2f} m²", styles['Normal']), Spacer(1, 12)]
 
-                        doc.build(story)
-                        buffer.seek(0)
-                        st.download_button("⬇️ Download Sketch Plan", buffer, file_name="parcel_sketch_plan.pdf", mime="application/pdf")
-                    except Exception as e:
-                        st.error(f"Sketch Plan PDF error: {e}")
+                table_data = [["Point ID", "Easting", "Northing", "Distance (m)", "Bearing (°)", "Angle (°)"]]
 
-            with col2:
-                if st.button("📄 Print Computation Sheet"):
-                    try:
-                        buffer = io.BytesIO()
-                        doc = SimpleDocTemplate(buffer, pagesize=A4)
-                        styles = getSampleStyleSheet()
-                        story = []
+                def compute_distance(p1, p2):
+                    return sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
 
-                        story.append(Paragraph("<b>Parcel Computation Sheet</b>", styles['Title']))
-                        story.append(Spacer(1, 12))
-                        story.append(Paragraph(f"<b>Total Area:</b> {st.session_state.parcel_area:,.2f} m²", styles['Normal']))
-                        story.append(Spacer(1, 12))
+                def compute_bearing(p1, p2):
+                    angle = degrees(atan2(p2[0]-p1[0], p2[1]-p1[1]))
+                    return (angle + 360) % 360
 
-                        table_data = [["Point ID", "Easting", "Northing", "Distance (m)", "Bearing (°)", "Angle (°)"]]
+                coords = st.session_state.utm_coords
+                n = len(coords) - 1
+                bearings = []
+                for i in range(n):
+                    p1 = coords[i]
+                    p2 = coords[i+1]
+                    dist = compute_distance(p1, p2)
+                    bearing = compute_bearing(p1, p2)
+                    bearings.append(bearing)
+                    table_data.append([str(i+1), f"{p1[0]:.2f}", f"{p1[1]:.2f}", f"{dist:.2f}", f"{bearing:.2f}", ""])
 
-                        def compute_distance(p1, p2):
-                            return sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+                for i in range(1, n):
+                    b1 = bearings[i-1]
+                    b2 = bearings[i]
+                    angle = (b2 - b1) % 360
+                    table_data[i][5] = f"{angle:.2f}"
 
-                        def compute_bearing(p1, p2):
-                            angle = degrees(atan2(p2[0]-p1[0], p2[1]-p1[1]))
-                            return (angle + 360) % 360
+                coord_table = Table(table_data, colWidths=[50, 90, 90, 80, 80, 60])
+                coord_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+                    ('GRID', (0,0), (-1,-1), 1, colors.black),
+                    ('ALIGN', (0,0), (-1,-1), 'CENTER')
+                ]))
+                story.append(coord_table)
+                story.append(Spacer(1, 20))
 
-                        coords = st.session_state.utm_coords
-                        n = len(coords) - 1
-                        bearings = []
-                        for i in range(n):
-                            p1 = coords[i]
-                            p2 = coords[i+1]
-                            dist = compute_distance(p1, p2)
-                            bearing = compute_bearing(p1, p2)
-                            bearings.append(bearing)
-                            table_data.append([str(i+1), f"{p1[0]:.2f}", f"{p1[1]:.2f}", f"{dist:.2f}", f"{bearing:.2f}", ""]) 
-
-                        for i in range(1, n):
-                            b1 = bearings[i-1]
-                            b2 = bearings[i]
-                            angle = (b2 - b1) % 360
-                            table_data[i][5] = f"{angle:.2f}"
-
-                        coord_table = Table(table_data, colWidths=[50, 90, 90, 80, 80, 60])
-                        coord_table.setStyle(TableStyle([
-                            ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
-                            ('GRID', (0,0), (-1,-1), 1, colors.black),
-                            ('ALIGN', (0,0), (-1,-1), 'CENTER')
-                        ]))
-
-                        story.append(coord_table)
-                        story.append(Spacer(1, 20))
-
-                        doc.build(story)
-                        buffer.seek(0)
-                        st.download_button("⬇️ Download Computation Sheet", buffer, file_name="parcel_computation_sheet.pdf", mime="application/pdf")
-                    except Exception as e:
-                        st.error(f"Computation Sheet PDF error: {e}")
+                doc.build(story)
