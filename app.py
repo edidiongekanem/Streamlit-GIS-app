@@ -67,63 +67,63 @@ elif tool == "Parcel Plotter":
             st.success(f"✅ Parcel plotted successfully! Area: {st.session_state.parcel_area:,.2f} m²")
 
     if st.session_state.parcel_plotted:
-        if st.button("📄 Print Sketch Plan"):
+        if st.button("📄 Print Computation Sheet"):
             try:
                 buffer = io.BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=A4)
                 styles = getSampleStyleSheet()
                 story = []
 
-                story.append(Paragraph("<b>Parcel Sketch Plan</b>", styles['Title']))
+                story.append(Paragraph("<b>Parcel Computation Sheet</b>", styles['Title']))
                 story.append(Spacer(1, 12))
-                story.append(Paragraph(f"<b>Area:</b> {st.session_state.parcel_area:,.2f} m²", styles['Normal']))
+                story.append(Paragraph(f"<b>Total Area:</b> {st.session_state.parcel_area:,.2f} m²", styles['Normal']))
                 story.append(Spacer(1, 12))
 
-                # Draw the polygon using lines instead of RLPolygon
-                drawing = Drawing(400, 400)
                 coords = st.session_state.utm_coords
 
-                xs, ys = zip(*coords)
-                min_x, max_x = min(xs), max(xs)
-                min_y, max_y = min(ys), max(ys)
-                scale_x = 350 / (max_x - min_x) if max_x != min_x else 1
-                scale_y = 350 / (max_y - min_y) if max_y != min_y else 1
-                scale = min(scale_x, scale_y)
+                # Compute distances, bearings, angles
+                table_data = [["Point ID", "Easting", "Northing", "Distance (m)", "Bearing (°)", "Angle (°)"]]
+                n = len(coords)-1
 
-                norm_coords = [((x - min_x) * scale + 25, (y - min_y) * scale + 25) for x, y in coords]
+                def compute_distance(p1, p2):
+                    return sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
 
-                # Draw edges
-                for i in range(len(norm_coords)-1):
-                    x1, y1 = norm_coords[i]
-                    x2, y2 = norm_coords[i+1]
-                    drawing.add(Line(x1, y1, x2, y2, strokeColor=colors.blue, strokeWidth=1))
+                def compute_bearing(p1, p2):
+                    angle = degrees(atan2(p2[0]-p1[0], p2[1]-p1[1]))
+                    return (angle + 360) % 360
 
-                # Draw beacon points
-                for idx, (x, y) in enumerate(norm_coords[:-1]):  # skip last repeated point
-                    drawing.add(Line(x-2, y-2, x+2, y+2, strokeColor=colors.red))
-                    drawing.add(Line(x-2, y+2, x+2, y-2, strokeColor=colors.red))
-                    drawing.add(String(x+3, y+3, str(idx+1), fontSize=8, fillColor=colors.black))
+                for i in range(n):
+                    p1 = coords[i]
+                    p2 = coords[i+1]
+                    dist = compute_distance(p1, p2)
+                    bearing = compute_bearing(p1, p2)
+                    # Angle at p2 formed by lines (i-1 to i) and (i to i+1)
+                    if i == 0:
+                        prev = coords[-2]
+                    else:
+                        prev = coords[i-1]
+                    v1x, v1y = p1[0]-prev[0], p1[1]-prev[1]
+                    v2x, v2y = p2[0]-p1[0], p2[1]-p1[1]
+                    dot = v1x*v2x + v1y*v2y
+                    mag1 = sqrt(v1x**2 + v1y**2)
+                    mag2 = sqrt(v2x**2 + v2y**2)
+                    angle = degrees(acos(dot/(mag1*mag2))) if mag1*mag2 != 0 else 0
 
-                story.append(drawing)
+                    table_data.append([str(i+1), f"{p1[0]:.2f}", f"{p1[1]:.2f}", f"{dist:.2f}", f"{bearing:.2f}", f"{angle:.2f}"])
 
-                # Add coordinate table
-                table_data = [["Point", "Easting", "Northing"]]
-                for idx, (xe, yn) in enumerate(coords[:-1]):
-                    table_data.append([str(idx+1), f"{xe:.2f}", f"{yn:.2f}"])
-
-                coord_table = Table(table_data, colWidths=[60, 120, 120])
+                coord_table = Table(table_data, colWidths=[50, 100, 100, 80, 80, 60])
                 coord_table.setStyle(TableStyle([
                     ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
                     ('GRID', (0,0), (-1,-1), 1, colors.black),
                     ('ALIGN', (0,0), (-1,-1), 'CENTER')
                 ]))
 
-                story.append(Spacer(1, 20))
                 story.append(coord_table)
+                story.append(Spacer(1, 20))
 
                 doc.build(story)
                 buffer.seek(0)
-                st.download_button("⬇️ Download Sketch Plan", buffer, file_name="parcel_sketch_plan.pdf", mime="application/pdf")
+                st.download_button("⬇️ Download Computation Sheet", buffer, file_name="parcel_computation_sheet.pdf", mime="application/pdf")
 
             except Exception as e:
                 st.error(f"PDF error: {e}")
