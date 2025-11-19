@@ -81,7 +81,31 @@ elif tool == "Parcel Plotter":
 
                 coords = st.session_state.utm_coords
 
-                # Compute distances and bearings only (no acos, no angles)
+                # Draw sketch plan using lines
+                drawing = Drawing(400, 400)
+                xs, ys = zip(*coords)
+                min_x, max_x = min(xs), max(xs)
+                min_y, max_y = min(ys), max(ys)
+                scale_x = 350 / (max_x - min_x) if max_x != min_x else 1
+                scale_y = 350 / (max_y - min_y) if max_y != min_y else 1
+                scale = min(scale_x, scale_y)
+
+                norm_coords = [((x - min_x) * scale + 25, (y - min_y) * scale + 25) for x, y in coords]
+
+                for i in range(len(norm_coords)-1):
+                    x1, y1 = norm_coords[i]
+                    x2, y2 = norm_coords[i+1]
+                    drawing.add(Line(x1, y1, x2, y2, strokeColor=colors.blue, strokeWidth=1))
+
+                for idx, (x, y) in enumerate(norm_coords[:-1]):
+                    drawing.add(Line(x-2, y-2, x+2, y+2, strokeColor=colors.red))
+                    drawing.add(Line(x-2, y+2, x+2, y-2, strokeColor=colors.red))
+                    drawing.add(String(x+3, y+3, str(idx+1), fontSize=8, fillColor=colors.black))
+
+                story.append(drawing)
+                story.append(Spacer(1, 12))
+
+                # Compute distances and bearings
                 table_data = [["Point ID", "Easting", "Northing", "Distance (m)", "Bearing (°)"]]
                 n = len(coords)-1
 
