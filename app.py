@@ -224,12 +224,12 @@ elif tool == "Parcel Plotter":
                 lines = [
                     "PLAN SHEWING LANDED PROPERTY",
                     "OF",
-                    "." * 70,
+                    "." * 50,
                     "AT",
-                    "." * 70,
-                    "." * 70,
-                    "." * 70,
-                    "." * 70
+                    "." * 40,
+                    "." * 40,
+                    "." * 40,
+                    "." * 40
                 ]
                 for i, line in enumerate(lines):
                     y = title_y - i * line_spacing
@@ -241,14 +241,21 @@ elif tool == "Parcel Plotter":
                     else:
                         c.drawCentredString(width / 2, y, line)
 
-                # Scale bar below title block
-                scale_bar_width_px = 100
-                meter_per_px = parcel_width / (max([x for x,_ in ll_coords]) - min([x for x,_ in ll_coords]) + 1e-6)
-                scale_m = round(scale_bar_width_px * meter_per_px)
-                scale_bar_y = title_y - len(lines) * line_spacing - 10
+                # --- Calculate scale ratio and draw survey scale bar ---
+                top_margin = 150  # buffer for title block etc.
+                page_center_y = (height - top_margin)/2 - 30
+
+                printable_width_pt = width - 100
+                printable_width_m = parcel_width
+                scale_ratio = printable_width_m / (printable_width_pt * 0.0254 / 72)
+                scale_ratio = int(round(scale_ratio / 500.0) * 500)
+
+                scale_bar_length_pt = 100
+                scale_bar_m = scale_bar_length_pt * scale_ratio * 0.0254 / 72  # meters
+                scale_bar_y = title_y - len(lines)*line_spacing - 10
                 c.setStrokeColor(colors.black)
-                c.line(width/2 - scale_bar_width_px/2, scale_bar_y, width/2 + scale_bar_width_px/2, scale_bar_y)
-                c.drawCentredString(width/2, scale_bar_y - 12, f"SCALE: {scale_m} m")
+                c.line(width/2 - scale_bar_length_pt/2, scale_bar_y, width/2 + scale_bar_length_pt/2, scale_bar_y)
+                c.drawCentredString(width/2, scale_bar_y - 12, f"1:{scale_ratio}  ({scale_bar_m:.0f} m)")
 
                 # Origin & Area below scale bar
                 c.setFont("Helvetica", 10)
@@ -260,14 +267,12 @@ elif tool == "Parcel Plotter":
 
                 # Scale & center polygon on page
                 scale_factor = 0.6
-                page_width, page_height = width - 100, height - 200
-                scale_x = page_width / parcel_width if parcel_width != 0 else 1
-                scale_y = page_height / parcel_height if parcel_height != 0 else 1
+                scale_x = (width - 100) / parcel_width if parcel_width != 0 else 1
+                scale_y = (height - top_margin - 100) / parcel_height if parcel_height != 0 else 1
                 scale = scale_factor * min(scale_x, scale_y)
                 center_x = (min_lon + max_lon)/2
                 center_y = (min_lat + max_lat)/2
                 page_center_x = width/2
-                page_center_y = height/2 - 30
 
                 def transform_point(lon, lat):
                     x = (lon - center_x) * scale + page_center_x
