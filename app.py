@@ -40,7 +40,8 @@ elif tool == "Nigeria LGA Finder":
 
     @st.cache_resource
     def load_lga_data():
-        return gpd.read_file("NGA_LGA_Boundaries_2_-2954311847614747693.geojson")
+        gdf = gpd.read_file("NGA_LGA_Boundaries_2_-2954311847614747693.geojson")
+        return gdf.to_crs("EPSG:4326")  # ensure WGS84
 
     lga_gdf = load_lga_data()
 
@@ -86,7 +87,6 @@ elif tool == "Nigeria LGA Finder":
                 stroked=True,
             )
 
-            # INTERACTIVE ZOOM-SCALING POINT MARKER
             point_layer = pdk.Layer(
                 "ScatterplotLayer",
                 [{"lon": lon, "lat": lat}],
@@ -97,14 +97,12 @@ elif tool == "Nigeria LGA Finder":
                 radius_max_pixels=40,
             )
 
-            centroid = Point(lon, lat)
-
             st.pydeck_chart(
                 pdk.Deck(
                     layers=[polygon_layer, point_layer],
                     initial_view_state=pdk.ViewState(
-                        latitude=centroid.y,
-                        longitude=centroid.x,
+                        latitude=lat,
+                        longitude=lon,
                         zoom=10
                     ),
                     map_style=None
@@ -112,7 +110,6 @@ elif tool == "Nigeria LGA Finder":
             )
         else:
             st.error("❌ No LGA found for this location.")
-
 
 
 # =========================================================
@@ -123,7 +120,6 @@ elif tool == "Parcel Plotter":
     st.header("📐 Parcel Boundary Plotter (UTM Coordinates)")
     st.write("Enter UTM Easting/Northing (Zone 32N, meters).")
 
-    # CRS definitions
     projected_crs = "EPSG:32632"    # UTM Zone 32N
     transformer = Transformer.from_crs(projected_crs, "EPSG:4326", always_xy=True)
 
@@ -140,29 +136,23 @@ elif tool == "Parcel Plotter":
     if st.button("Plot Parcel"):
 
         try:
-            # Auto-close polygon
             if utm_coords[0] != utm_coords[-1]:
                 utm_coords.append(utm_coords[0])
 
-            # Build polygon in UTM for accurate area
             polygon = Polygon(utm_coords)
 
             if not polygon.is_valid:
                 st.error("❌ Invalid boundary shape. Check point sequence.")
             else:
 
-                # AREA IN SQUARE METERS (correct, because UTM)
                 area = polygon.area
                 st.success("✅ Parcel plotted successfully!")
                 st.write(f"### Area: **{area:,.2f} m²**")
 
-                # Convert UTM → Lat/Lon for mapping
+                # Convert UTM → Lat/Lon
                 ll_coords = [transformer.transform(x, y) for x, y in utm_coords]
 
-                # Polygon for pydeck
-                polygon_data = [{
-                    "coordinates": [ll_coords]
-                }]
+                polygon_data = [{"coordinates": [ll_coords]}]
 
                 polygon_layer = pdk.Layer(
                     "PolygonLayer",
@@ -183,25 +173,32 @@ elif tool == "Parcel Plotter":
                     radius_max_pixels=30,
                 )
 
-                # Center on the polygon centroid
+                # Center on polygon centroid
                 centroid_lon, centroid_lat = transformer.transform(
                     polygon.centroid.x,
                     polygon.centroid.y
                 )
 
-                # 🟦 SAME BASEMAP AS LGA FINDER (map_style=None)
+                # --- Satellite TileLayer ---
+                tile_layer = pdk.Layer(
+                    "TileLayer",
+                    "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                    min_zoom=0,
+                    max_zoom=19,
+                    tile_size=256,
+                    pickable=False,
+                )
+
                 st.pydeck_chart(
                     pdk.Deck(
-                        layers=[polygon_layer, point_layer],
+                        layers=[tile_layer, polygon_layer, point_layer],
                         initial_view_state=pdk.ViewState(
                             longitude=centroid_lon,
                             latitude=centroid_lat,
                             zoom=17
-                        ),
-                        map_style=None  # <-- SAME BASEMAP
+                        )
                     )
                 )
 
         except Exception as e:
             st.error(f"Error: {e}")
-
