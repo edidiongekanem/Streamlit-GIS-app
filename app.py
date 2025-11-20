@@ -169,18 +169,16 @@ elif tool == "Parcel Plotter":
                     radius_max_pixels=30,
                 )
 
-                # --- Calculate bounding box for auto-zoom ---
+                # --- Auto-zoom ---
                 lons, lats = zip(*ll_coords)
                 lon_center = sum(lons)/len(lons)
                 lat_center = sum(lats)/len(lats)
-
                 lon_range = max(lons) - min(lons)
                 lat_range = max(lats) - min(lats)
                 max_range = max(lon_range, lat_range)
-
+                import math
                 zoom_level = 8 if max_range == 0 else min(17, 8 - math.log2(max_range/360))
 
-                # --- Open-Source Satellite TileLayer ---
                 tile_layer = pdk.Layer(
                     "TileLayer",
                     "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
@@ -203,5 +201,51 @@ elif tool == "Parcel Plotter":
                     )
                 )
 
+                # --- PDF Sketch Download ---
+                from reportlab.pdfgen import canvas
+                from reportlab.lib.pagesizes import A4
+                from io import BytesIO
+
+                buffer = BytesIO()
+                c = canvas.Canvas(buffer, pagesize=A4)
+                width, height = A4
+
+                # Scale coordinates to fit A4 page
+                min_lon, max_lon = min(lons), max(lons)
+                min_lat, max_lat = min(lats), max(lats)
+
+                def scale_x(x): return 50 + (x - min_lon) / (max_lon - min_lon) * (width - 100)
+                def scale_y(y): return 50 + (y - min_lat) / (max_lat - min_lat) * (height - 100)
+
+                scaled_points = [(scale_x(lon), scale_y(lat)) for lon, lat in ll_coords]
+
+                # Draw black polygon outline
+                c.setLineWidth(2)
+                c.setStrokeColorRGB(0, 0, 0)
+                x_points = [x for x, y in scaled_points]
+                y_points = [y for x, y in scaled_points]
+                c.lines(list(zip(x_points, y_points, x_points[1:] + [x_points[0]], y_points[1:] + [y_points[0]])))
+
+                # Draw red points for beacons
+                c.setFillColorRGB(1, 0, 0)
+                for x, y in scaled_points:
+                    c.circle(x, y, 3, fill=1)
+
+                # Add parcel area text
+                c.setFillColorRGB(0, 0, 0)
+                c.drawString(50, 30, f"Parcel Area: {area:,.2f} m²")
+
+                c.showPage()
+                c.save()
+                buffer.seek(0)
+
+                st.download_button(
+                    label="💾 Download Parcel Sketch PDF",
+                    data=buffer,
+                    file_name="parcel_sketch.pdf",
+                    mime="application/pdf"
+                )
+
         except Exception as e:
             st.error(f"Error: {e}")
+
