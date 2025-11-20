@@ -204,20 +204,52 @@ elif tool == "Parcel Plotter":
                     )
                 )
 
-                # --- PDF Sketch Download (Clean Layout + Auto Scale Bar) ---
+                # --- PDF Sketch Download (Clean Layout + Dotted Lines) ---
                 buffer = BytesIO()
                 c = canvas.Canvas(buffer, pagesize=A4)
                 width, height = A4
 
-                # Title block (top-right)
+                # Title block (centered)
                 c.setFont("Helvetica-Bold", 12)
                 title_y = height - 50
                 line_spacing = 24
-                lines = ["PLAN SHEWING LANDED PROPERTY", "OF", "----------------------------------------------------",
-                         "AT", "----------------------------------------", "-----------------------------------",
-                         "-----------------------------------", "------------------------------------"]
+                lines = [
+                    "PLAN SHEWING LANDED PROPERTY",
+                    "OF",
+                    "." * 70,  # dotted line
+                    "AT",
+                    "." * 70,
+                    "." * 70,
+                    "." * 70,
+                    "." * 70
+                ]
                 for i, line in enumerate(lines):
-                    c.drawCentredString(width / 2, title_y - i * line_spacing, line)
+                    y = title_y - i * line_spacing
+                    if line.startswith("."):
+                        c.setLineWidth(1)
+                        c.setDash(1, 2)
+                        c.line(width/2 - 250, y, width/2 + 250, y)
+                        c.setDash()
+                    else:
+                        c.drawCentredString(width / 2, y, line)
+
+                # Scale bar below title block
+                scale_bar_width_px = 100
+                parcel_m_width = max_lon - min_lon
+                meter_per_px = parcel_m_width / (max([x for x,_ in ll_coords]) - min([x for x,_ in ll_coords]) + 1e-6)
+                scale_m = round(scale_bar_width_px * meter_per_px)
+                scale_bar_y = title_y - len(lines) * line_spacing - 10
+                c.setStrokeColor(colors.black)
+                c.line(width/2 - scale_bar_width_px/2, scale_bar_y, width/2 + scale_bar_width_px/2, scale_bar_y)
+                c.drawCentredString(width/2, scale_bar_y - 12, f"SCALE: {scale_m} m")
+
+                # Origin & Area below scale bar
+                c.setFont("Helvetica", 10)
+                c.drawCentredString(width/2, scale_bar_y - 30, "ORIGIN: UTM ZONE 32N")
+                c.setFont("Helvetica-Bold", 12)
+                c.setFillColor(colors.red)
+                c.drawCentredString(width/2, scale_bar_y - 45, f"AREA = {area:,.2f} m²")
+                c.setFillColor(colors.black)
 
                 # Scale & center polygon
                 min_lon, max_lon = min(lons), max(lons)
@@ -225,12 +257,10 @@ elif tool == "Parcel Plotter":
                 parcel_width = max_lon - min_lon
                 parcel_height = max_lat - min_lat
                 scale_factor = 0.6
-
                 page_width, page_height = width - 100, height - 200
                 scale_x = page_width / parcel_width if parcel_width != 0 else 1
                 scale_y = page_height / parcel_height if parcel_height != 0 else 1
                 scale = scale_factor * min(scale_x, scale_y)
-
                 center_x = (min_lon + max_lon)/2
                 center_y = (min_lat + max_lat)/2
                 page_center_x = width/2
@@ -243,7 +273,7 @@ elif tool == "Parcel Plotter":
 
                 scaled_points = [transform_point(lon, lat) for lon, lat in ll_coords]
 
-                # Black polygon
+                # Draw black polygon
                 c.setLineWidth(2)
                 c.setStrokeColor(colors.black)
                 x_points = [x for x, y in scaled_points]
@@ -259,7 +289,7 @@ elif tool == "Parcel Plotter":
                     c.drawString(x + 5, y + 2, f"P{idx}")
                     c.setFillColor(colors.red)
 
-                # True North symbol above point 1
+                # True North above Point 1
                 x1, y1 = scaled_points[0]
                 north_len = 70
                 c.setStrokeColor(colors.black)
@@ -269,24 +299,6 @@ elif tool == "Parcel Plotter":
                 c.line(x1, y1 + north_len, x1 + 5, y1 + north_len - 10)
                 c.setFont("Helvetica-Bold", 10)
                 c.drawCentredString(x1, y1 + north_len + 10, "N")
-
-                # --- Automatic scale bar ---
-                scale_bar_width_px = 100
-                # Calculate approximate length in meters (UTM coordinates)
-                parcel_m_width = max_lon - min_lon
-                meter_per_px = parcel_m_width / (max(x_points) - min(x_points))
-                scale_m = round(scale_bar_width_px * meter_per_px)
-                c.setStrokeColor(colors.black)
-                c.line(width/2 - scale_bar_width_px/2, 50, width/2 + scale_bar_width_px/2, 50)
-                c.drawCentredString(width/2, 35, f"SCALE: {scale_m} m")
-
-                # Origin & area
-                c.setFont("Helvetica", 10)
-                c.drawString(50, 20, "ORIGIN: UTM ZONE 32N")
-                c.setFont("Helvetica-Bold", 12)
-                c.setFillColor(colors.red)
-                c.drawString(250, 20, f"AREA = {area:,.2f} m²")
-                c.setFillColor(colors.black)
 
                 c.showPage()
                 c.save()
@@ -301,4 +313,3 @@ elif tool == "Parcel Plotter":
 
         except Exception as e:
             st.error(f"Error: {e}")
-
