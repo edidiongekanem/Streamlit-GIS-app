@@ -137,8 +137,9 @@ if tool == "Parcel Plotter":
             label_data,
             get_position="[lon, lat]",
             get_text="text",
-            get_size=16,
-            get_color="[0, 0, 0]",
+            get_size=18,
+            get_color="[255, 255, 255]",  # White text
+            get_pixel_offset="[10, -10]",  # Slight buffer away from point
             billboard=True,
         )
 
@@ -157,63 +158,7 @@ if tool == "Parcel Plotter":
             )
         )
 
-        # Continue with Sketch Plan PDF sectionTransformer
-        transformer = Transformer.from_crs("EPSG:32632", "EPSG:4326", always_xy=True)
-        ll_coords = [transformer.transform(x, y) for x, y in st.session_state.utm_coords]
-
-        polygon_data = [{"coordinates": [ll_coords]}]
-
-        polygon_layer = pdk.Layer(
-            "PolygonLayer",
-            polygon_data,
-            get_polygon="coordinates",
-            get_fill_color="[0, 150, 255, 80]",
-            get_line_color="[0, 50, 200]",
-            stroked=True,
-        )
-
-        point_layer = pdk.Layer(
-            "ScatterplotLayer",
-            [{"lon": lon, "lat": lat} for lon, lat in ll_coords],
-            get_position="[lon, lat]",
-            get_color="[255, 0, 0]",
-            radius_scale=1,
-            radius_min_pixels=4,
-            radius_max_pixels=20,
-        )
-
-        # NEW — LABEL EACH POINT
-        label_data = [
-            {"lon": lon, "lat": lat, "text": f"P{i+1}"}
-            for i, (lon, lat) in enumerate(ll_coords)
-        ]
-
-        text_layer = pdk.Layer(
-            "TextLayer",
-            label_data,
-            get_position="[lon, lat]",
-            get_text="text",
-            get_size=16,
-            get_color="[0, 0, 0]",
-            billboard=True,
-        )
-
-        centroid_x = sum([c[0] for c in ll_coords]) / len(ll_coords)
-        centroid_y = sum([c[1] for c in ll_coords]) / len(ll_coords)
-
-        st.pydeck_chart(
-            pdk.Deck(
-                layers=[polygon_layer, point_layer, text_layer],
-                initial_view_state=pdk.ViewState(
-                    longitude=centroid_x,
-                    latitude=centroid_y,
-                    zoom=18
-                ),
-                map_style=None
-            )
-        )
-
-        # Sketch Plan P with actual polygon coordinates
+        # Continue with Sketch Plan PDF section
         sketch_buffer = io.BytesIO()
         story = [Paragraph("<b>Parcel Sketch Plan</b>", getSampleStyleSheet()['Title']), Spacer(1,12), DrawPolygon(st.session_state.utm_coords)]
         SimpleDocTemplate(sketch_buffer, pagesize=A4).build(story)
