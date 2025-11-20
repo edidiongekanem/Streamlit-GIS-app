@@ -197,9 +197,10 @@ elif tool == "Parcel Plotter":
                             latitude=centroid_lat,
                             zoom=17
                         ),
-                        map_style=None  # MUST be None to show TileLayer
+                        map_style="null"  # MUST be None to show TileLayer
                     )
                 )
 
         except Exception as e:
             st.error(f"Error: {e}")
+
